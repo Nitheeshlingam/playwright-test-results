@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model TestRun {
+  id          Int      @id @default(autoincrement())
+  githubRunId String   @unique
+  commitSha   String
+  developer   String
+  branch      String?
+  status      String
+  event       String?
+  repository  String
+  startedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  prNumber    Int?
+
+  testResults TestResult[]
+
+  @@map("testrun")
+}
+
+model TestResult {
+  id         Int      @id @default(autoincrement())
+  testRunId  Int
+  testName   String
+  fileName   String?
+  status     String
+  durationMs Int?
+  error      String?  @db.Text
+  screenshot String?
+  video      String?
+  trace      String?
+  createdAt  DateTime @default(now())
+
+  testRun TestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  @@index([testRunId], map: "TestResult_testRunId_idx")
+  @@map("testresult")
+}
