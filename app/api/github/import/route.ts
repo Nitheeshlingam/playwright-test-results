@@ -4,6 +4,10 @@ import AdmZip from "adm-zip";
 
 export async function POST(request: Request) {
   try {
+    // =====================================================
+    // 1. READ REQUEST
+    // =====================================================
+
     const body = await request.json();
 
     const runId = body.runId;
@@ -16,6 +20,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // =====================================================
+    // 2. GITHUB ENVIRONMENT VARIABLES
+    // =====================================================
 
     const token = process.env.GITHUB_TOKEN;
     const owner = process.env.GITHUB_OWNER;
@@ -30,6 +38,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // =====================================================
+    // 3. GITHUB HEADERS
+    // =====================================================
+
     const githubHeaders = {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${token}`,
@@ -37,7 +49,7 @@ export async function POST(request: Request) {
     };
 
     // =====================================================
-    // 1. FETCH GITHUB WORKFLOW RUN
+    // 4. FETCH GITHUB WORKFLOW RUN
     // =====================================================
 
     const githubResponse = await fetch(
@@ -63,24 +75,26 @@ export async function POST(request: Request) {
     }
 
     // =====================================================
-    // 2. INITIAL GITHUB STATUS
+    // 5. INITIAL STATUS
+    //
+    // IMPORTANT:
+    // There is NO RUNNING status anymore.
+    //
+    // We use the GitHub conclusion as the initial value.
+    // Playwright results will determine the final value
+    // later.
     // =====================================================
 
-    let status = "RUNNING";
+    let status: "PASSED" | "FAILED";
 
     if (githubRun.conclusion === "success") {
       status = "PASSED";
-    }
-
-    if (
-      githubRun.conclusion === "failure" ||
-      githubRun.conclusion === "cancelled" ||
-      githubRun.conclusion === "timed_out"
-    ) {
+    } else {
       status = "FAILED";
     }
+
     // =====================================================
-    // 3. CREATE / UPDATE TEST RUN
+    // 6. CREATE / UPDATE TEST RUN
     // =====================================================
 
     const testRun = await prisma.testRun.upsert({
@@ -130,7 +144,7 @@ export async function POST(request: Request) {
     });
 
     // =====================================================
-    // 4. FETCH GITHUB ARTIFACTS
+    // 7. FETCH GITHUB ARTIFACTS
     // =====================================================
 
     const artifactsResponse = await fetch(
@@ -156,7 +170,7 @@ export async function POST(request: Request) {
     }
 
     // =====================================================
-    // 5. FIND PLAYWRIGHT RESULTS ARTIFACT
+    // 8. FIND PLAYWRIGHT RESULTS ARTIFACT
     // =====================================================
 
     const artifact = artifactsData.artifacts?.find(
@@ -165,19 +179,49 @@ export async function POST(request: Request) {
         item.expired === false
     );
 
+    // =====================================================
+    // 9. IF PLAYWRIGHT ARTIFACT DOES NOT EXIST
+    //
+    // Use GitHub workflow conclusion.
+    // =====================================================
+
     if (!artifact) {
+      await prisma.testRun.update({
+        where: {
+          id: testRun.id,
+        },
+
+        data: {
+          status,
+        },
+      });
+
       return NextResponse.json({
         success: true,
+
         message:
           "GitHub run imported, but playwright-results artifact was not found.",
-        testRun,
-        githubRun,
+
+        testRun: {
+          ...testRun,
+          status,
+        },
+
+        githubRun: {
+          id: githubRun.id,
+          name: githubRun.name,
+          status: githubRun.status,
+          conclusion: githubRun.conclusion,
+          branch: githubRun.head_branch,
+          commitSha: githubRun.head_sha,
+        },
+
         artifacts: artifactsData.artifacts || [],
       });
     }
 
     // =====================================================
-    // 6. DOWNLOAD ARTIFACT ZIP
+    // 10. DOWNLOAD PLAYWRIGHT ARTIFACT ZIP
     // =====================================================
 
     const artifactResponse = await fetch(
@@ -202,12 +246,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // =====================================================
+    // 11. CONVERT ZIP TO BUFFER
+    // =====================================================
+
     const artifactBuffer = Buffer.from(
       await artifactResponse.arrayBuffer()
     );
 
     // =====================================================
-    // 7. READ results.json FROM ZIP
+    // 12. READ results.json FROM ZIP
     // =====================================================
 
     const zip = new AdmZip(artifactBuffer);
@@ -228,6 +276,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // =====================================================
+    // 13. PARSE PLAYWRIGHT JSON
+    // =====================================================
+
     const resultsJson = resultsEntry
       .getData()
       .toString("utf8");
@@ -235,7 +287,7 @@ export async function POST(request: Request) {
     const playwrightReport = JSON.parse(resultsJson);
 
     // =====================================================
-    // 8. CONVERT PLAYWRIGHT RESULTS
+    // 14. TEST RESULT TYPE
     // =====================================================
 
     const testResults: {
@@ -246,6 +298,10 @@ export async function POST(request: Request) {
       error: string | null;
     }[] = [];
 
+    // =====================================================
+    // 15. COLLECT PLAYWRIGHT TESTS
+    // =====================================================
+
     function collectTests(
       suites: any[],
       results: typeof testResults = []
@@ -253,7 +309,10 @@ export async function POST(request: Request) {
       for (const suite of suites || []) {
         const fileName = suite.file || null;
 
+        // -------------------------------------------------
         // Playwright specs
+        // -------------------------------------------------
+
         for (const spec of suite.specs || []) {
           for (const test of spec.tests || []) {
             for (const result of test.results || []) {
@@ -265,7 +324,8 @@ export async function POST(request: Request) {
 
                 fileName,
 
-                status: result.status || "unknown",
+                status:
+                  result.status || "unknown",
 
                 durationMs:
                   result.duration || 0,
@@ -279,7 +339,10 @@ export async function POST(request: Request) {
           }
         }
 
+        // -------------------------------------------------
         // Nested suites
+        // -------------------------------------------------
+
         collectTests(
           suite.suites,
           results
@@ -294,28 +357,30 @@ export async function POST(request: Request) {
       testResults
     );
 
-      // =====================================================
-      // DETERMINE FINAL STATUS FROM PLAYWRIGHT RESULTS
-      // =====================================================
+    // =====================================================
+    // 16. DETERMINE FINAL STATUS FROM PLAYWRIGHT RESULTS
+    //
+    // ONLY TWO POSSIBLE VALUES:
+    //
+    // PASSED
+    // FAILED
+    // =====================================================
 
-      const hasFailedTests = testResults.some(
-        (test) =>
-          test.status === "failed" ||
-          test.status === "timedOut"
-      );
+    const hasFailedTests = testResults.some(
+      (test) =>
+        test.status === "failed" ||
+        test.status === "timedOut" ||
+        test.status === "interrupted"
+    );
 
-      const hasPassedTests = testResults.some(
-        (test) => test.status === "passed"
-      );
-
-      if (hasFailedTests) {
-        status = "FAILED";
-      } else if (hasPassedTests) {
-        status = "PASSED";
-      }
+    if (hasFailedTests) {
+      status = "FAILED";
+    } else {
+      status = "PASSED";
+    }
 
     // =====================================================
-    // 9. REMOVE OLD TEST RESULTS
+    // 17. REMOVE OLD TEST RESULTS
     // =====================================================
 
     await prisma.testResult.deleteMany({
@@ -325,7 +390,7 @@ export async function POST(request: Request) {
     });
 
     // =====================================================
-    // 10. INSERT TEST RESULTS
+    // 18. INSERT NEW TEST RESULTS
     // =====================================================
 
     if (testResults.length > 0) {
@@ -347,7 +412,34 @@ export async function POST(request: Request) {
     }
 
     // =====================================================
-    // 11. RETURN RESULT
+    // 19. SAVE FINAL STATUS TO DATABASE
+    //
+    // THIS IS THE IMPORTANT PART.
+    //
+    // The first upsert may have stored FAILED/PASSED
+    // based on GitHub.
+    //
+    // Now we overwrite it with the actual Playwright
+    // result.
+    // =====================================================
+
+    const updatedTestRun =
+      await prisma.testRun.update({
+        where: {
+          id: testRun.id,
+        },
+
+        data: {
+          status,
+        },
+
+        include: {
+          testResults: true,
+        },
+      });
+
+    // =====================================================
+    // 20. RETURN RESULT
     // =====================================================
 
     return NextResponse.json({
@@ -356,26 +448,41 @@ export async function POST(request: Request) {
       message:
         "GitHub workflow and Playwright results imported successfully.",
 
-      testRun,
+      testRun: updatedTestRun,
 
       githubRun: {
         id: githubRun.id,
+
         name: githubRun.name,
+
         status: githubRun.status,
-        conclusion: githubRun.conclusion,
-        branch: githubRun.head_branch,
-        commitSha: githubRun.head_sha,
+
+        conclusion:
+          githubRun.conclusion,
+
+        branch:
+          githubRun.head_branch,
+
+        commitSha:
+          githubRun.head_sha,
       },
 
       artifact: {
         id: artifact.id,
+
         name: artifact.name,
       },
+
+      finalStatus: status,
 
       testResultsImported:
         testResults.length,
     });
   } catch (error) {
+    // =====================================================
+    // ERROR HANDLING
+    // =====================================================
+
     console.error(
       "GitHub import error:",
       error
@@ -385,6 +492,7 @@ export async function POST(request: Request) {
       {
         error:
           "Could not import GitHub workflow run",
+
         details:
           error instanceof Error
             ? error.message
