@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     // =====================================================
-    // 2. CONVERT GITHUB STATUS
+    // 2. INITIAL GITHUB STATUS
     // =====================================================
 
     let status = "RUNNING";
@@ -79,7 +79,6 @@ export async function POST(request: Request) {
     ) {
       status = "FAILED";
     }
-
     // =====================================================
     // 3. CREATE / UPDATE TEST RUN
     // =====================================================
@@ -294,6 +293,26 @@ export async function POST(request: Request) {
       playwrightReport.suites,
       testResults
     );
+
+      // =====================================================
+      // DETERMINE FINAL STATUS FROM PLAYWRIGHT RESULTS
+      // =====================================================
+
+      const hasFailedTests = testResults.some(
+        (test) =>
+          test.status === "failed" ||
+          test.status === "timedOut"
+      );
+
+      const hasPassedTests = testResults.some(
+        (test) => test.status === "passed"
+      );
+
+      if (hasFailedTests) {
+        status = "FAILED";
+      } else if (hasPassedTests) {
+        status = "PASSED";
+      }
 
     // =====================================================
     // 9. REMOVE OLD TEST RESULTS

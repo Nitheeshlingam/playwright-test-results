@@ -7,7 +7,7 @@ type PageProps = {
   }>;
 };
 
-export default async function RunDetailsPage({
+export default async function CommitDetailsPage({
   params,
 }: PageProps) {
   const { id } = await params;
@@ -18,10 +18,19 @@ export default async function RunDetailsPage({
     return (
       <main className="dashboard">
         <div className="dashboard-container">
+
           <div className="dashboard-section">
-            <h1 className="section-title">Invalid Run ID</h1>
-            <Link href="/">← Back to Dashboard</Link>
+
+            <h1 className="section-title">
+              Invalid Commit ID
+            </h1>
+
+            <Link href="/">
+              ← Back to Dashboard
+            </Link>
+
           </div>
+
         </div>
       </main>
     );
@@ -31,6 +40,7 @@ export default async function RunDetailsPage({
     where: {
       id: runId,
     },
+
     include: {
       testResults: true,
     },
@@ -40,23 +50,31 @@ export default async function RunDetailsPage({
     return (
       <main className="dashboard">
         <div className="dashboard-container">
+
           <div className="dashboard-section">
+
             <h1 className="section-title">
-              Test Run Not Found
+              Commit Not Found
             </h1>
 
             <p className="section-description">
-              The requested test run does not exist.
+              The requested commit does not exist.
             </p>
 
             <Link href="/">
               ← Back to Dashboard
             </Link>
+
           </div>
+
         </div>
       </main>
     );
   }
+
+  // =====================================================
+  // TEST STATISTICS
+  // =====================================================
 
   const passed = run.testResults.filter(
     (test) => test.status === "passed"
@@ -69,18 +87,21 @@ export default async function RunDetailsPage({
   ).length;
 
   const skipped = run.testResults.filter(
-    (test) =>
-      test.status === "skipped"
+    (test) => test.status === "skipped"
   ).length;
 
   return (
     <main className="dashboard">
       <div className="dashboard-container">
 
-        {/* Header */}
+        {/* =====================================================
+            HEADER
+        ====================================================== */}
 
         <header className="dashboard-header">
+
           <div>
+
             <Link
               href="/"
               style={{
@@ -96,38 +117,49 @@ export default async function RunDetailsPage({
             </Link>
 
             <h1 className="dashboard-title">
-              Test Run Details
+              Commit Details
             </h1>
 
             <p className="dashboard-subtitle">
-              {run.githubRunId}
+              {run.commitSha}
             </p>
+
           </div>
 
           <span
             className={`status-badge ${
               run.status === "PASSED"
                 ? "status-passed"
-                : "status-failed"
+                : run.status === "FAILED"
+                ? "status-failed"
+                : ""
             }`}
           >
             {run.status === "PASSED"
               ? "● PASSED"
-              : "● FAILED"}
+              : run.status === "FAILED"
+              ? "● FAILED"
+              : "● RUNNING"}
           </span>
+
         </header>
 
-        {/* Run Information */}
+        {/* =====================================================
+            COMMIT INFORMATION
+        ====================================================== */}
 
         <div className="dashboard-section">
+
           <div className="section-header">
+
             <h2 className="section-title">
-              Run Information
+              Commit Information
             </h2>
 
             <p className="section-description">
-              Details about this Playwright execution
+              Details about this Playwright commit
             </p>
+
           </div>
 
           <div
@@ -139,59 +171,10 @@ export default async function RunDetailsPage({
               padding: "24px",
             }}
           >
-            <div>
-              <div className="stat-label">
-                Run ID
-              </div>
-              <strong>{run.githubRunId}</strong>
-            </div>
+
+            {/* Commit */}
 
             <div>
-              <div className="stat-label">
-                Developer
-              </div>
-              <strong>{run.developer}</strong>
-            </div>
-
-            <div>
-              <div className="stat-label">
-                Branch
-              </div>
-              <strong>
-                {run.branch || "main"}
-              </strong>
-            </div>
-
-            <div>
-              <div className="stat-label">
-                Event
-              </div>
-              <strong>
-                {run.event || "unknown"}
-              </strong>
-            </div>
-
-            <div>
-              <div className="stat-label">
-                Repository
-              </div>
-              <strong>{run.repository}</strong>
-            </div>
-
-            <div>
-              <div className="stat-label">
-                PR Number
-              </div>
-              <strong>
-                {run.prNumber ?? "—"}
-              </strong>
-            </div>
-
-            <div
-              style={{
-                gridColumn: "1 / -1",
-              }}
-            >
               <div className="stat-label">
                 Commit
               </div>
@@ -204,19 +187,97 @@ export default async function RunDetailsPage({
                   background: "#f1f5f9",
                   borderRadius: "7px",
                   fontSize: "12px",
+                  fontFamily: "monospace",
                 }}
               >
                 {run.commitSha}
               </code>
             </div>
+
+            {/* Developer */}
+
+            <div>
+              <div className="stat-label">
+                Developer
+              </div>
+
+              <strong>
+                {run.developer}
+              </strong>
+            </div>
+
+            {/* Branch */}
+
+            <div>
+              <div className="stat-label">
+                Branch
+              </div>
+
+              <strong>
+                {run.branch || "main"}
+              </strong>
+            </div>
+
+            {/* Event */}
+
+            <div>
+              <div className="stat-label">
+                Event
+              </div>
+
+              <strong>
+                {run.event || "unknown"}
+              </strong>
+            </div>
+
+            {/* Repository */}
+
+            <div>
+              <div className="stat-label">
+                Repository
+              </div>
+
+              <strong>
+                {run.repository}
+              </strong>
+            </div>
+
+            {/* PR */}
+
+            <div>
+              <div className="stat-label">
+                PR Number
+              </div>
+
+              <strong>
+                {run.prNumber ?? "—"}
+              </strong>
+            </div>
+
+            {/* GitHub Run ID */}
+
+            <div>
+              <div className="stat-label">
+                GitHub Run ID
+              </div>
+
+              <strong>
+                {run.githubRunId}
+              </strong>
+            </div>
+
           </div>
+
         </div>
 
-        {/* Test Statistics */}
+        {/* =====================================================
+            TEST STATISTICS
+        ====================================================== */}
 
         <div className="stats-grid">
 
           <div className="stat-card stat-blue">
+
             <div className="stat-label">
               Total Tests
             </div>
@@ -224,9 +285,11 @@ export default async function RunDetailsPage({
             <div className="stat-value">
               {run.testResults.length}
             </div>
+
           </div>
 
           <div className="stat-card stat-green">
+
             <div className="stat-label">
               Passed
             </div>
@@ -234,9 +297,11 @@ export default async function RunDetailsPage({
             <div className="stat-value">
               {passed}
             </div>
+
           </div>
 
           <div className="stat-card stat-red">
+
             <div className="stat-label">
               Failed
             </div>
@@ -244,9 +309,11 @@ export default async function RunDetailsPage({
             <div className="stat-value">
               {failed}
             </div>
+
           </div>
 
           <div className="stat-card stat-yellow">
+
             <div className="stat-label">
               Skipped
             </div>
@@ -254,34 +321,48 @@ export default async function RunDetailsPage({
             <div className="stat-value">
               {skipped}
             </div>
+
           </div>
 
         </div>
 
-        {/* Test Results */}
+        {/* =====================================================
+            TEST RESULTS
+        ====================================================== */}
 
         <div className="dashboard-section">
 
           <div className="section-header">
+
             <h2 className="section-title">
               Test Results
             </h2>
 
             <p className="section-description">
-              Individual Playwright test results
+              Playwright tests for this commit
             </p>
+
           </div>
 
           {run.testResults.length === 0 ? (
+
             <div className="empty-state">
               No test results found.
             </div>
+
           ) : (
+
             run.testResults.map((test) => {
+
+              const isPassed =
+                test.status === "passed";
 
               const isFailed =
                 test.status === "failed" ||
                 test.status === "interrupted";
+
+              const isSkipped =
+                test.status === "skipped";
 
               return (
                 <div
@@ -298,16 +379,19 @@ export default async function RunDetailsPage({
                       display: "flex",
                       justifyContent:
                         "space-between",
-                      alignItems: "flex-start",
+                      alignItems: "center",
                       gap: "20px",
                     }}
                   >
+
+                    {/* Test information */}
 
                     <div
                       style={{
                         minWidth: 0,
                       }}
                     >
+
                       <div
                         style={{
                           fontWeight: 700,
@@ -330,59 +414,51 @@ export default async function RunDetailsPage({
                           {test.fileName}
                         </div>
                       )}
+
                     </div>
+
+                    {/* Test status */}
 
                     <span
                       className={`status-badge ${
-                        test.status === "passed"
+                        isPassed
                           ? "status-passed"
                           : isFailed
                           ? "status-failed"
+                          : isSkipped
+                          ? "status-skipped"
                           : ""
                       }`}
                     >
-                      {test.status.toUpperCase()}
+                      {isPassed
+                        ? "PASSED"
+                        : isFailed
+                        ? "FAILED"
+                        : isSkipped
+                        ? "SKIPPED"
+                        : test.status.toUpperCase()}
                     </span>
 
                   </div>
 
+                  {/* Duration */}
+
                   <div
                     style={{
-                      display: "flex",
-                      gap: "20px",
                       marginTop: "14px",
                       fontSize: "13px",
                       color: "#64748b",
                     }}
                   >
-                    <span>
-                      Duration:{" "}
-                      {test.durationMs ?? 0} ms
-                    </span>
+                    Duration:{" "}
+                    {test.durationMs ?? 0} ms
                   </div>
-
-                  {isFailed && test.error && (
-                    <div
-                      style={{
-                        marginTop: "15px",
-                        padding: "14px",
-                        background: "#fef2f2",
-                        border: "1px solid #fecaca",
-                        borderRadius: "8px",
-                        color: "#991b1b",
-                        fontSize: "13px",
-                        whiteSpace: "pre-wrap",
-                        fontFamily:
-                          "monospace",
-                      }}
-                    >
-                      {test.error}
-                    </div>
-                  )}
 
                 </div>
               );
+
             })
+
           )}
 
         </div>

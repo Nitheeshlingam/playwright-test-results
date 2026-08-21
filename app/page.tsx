@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import Filters from "./filters";
+
 export default async function Home({
   searchParams,
 }: {
@@ -27,19 +28,17 @@ export default async function Home({
     },
   });
 
+  // =====================================================
+  // OVERALL STATISTICS
+  // =====================================================
 
+  const totalCommits = testRuns.length;
 
-  // -----------------------------
-  // Overall statistics
-  // -----------------------------
-
-  const totalRuns = testRuns.length;
-
-  const passedRuns = testRuns.filter(
+  const passedCommits = testRuns.filter(
     (run) => run.status === "PASSED"
   ).length;
 
-  const failedRuns = testRuns.filter(
+  const failedCommits = testRuns.filter(
     (run) => run.status === "FAILED"
   ).length;
 
@@ -73,9 +72,9 @@ export default async function Home({
       ? 0
       : Math.round((passedTests / totalTests) * 100);
 
-  // -----------------------------
-  // Developer failure statistics
-  // -----------------------------
+  // =====================================================
+  // DEVELOPER FAILURE STATISTICS
+  // =====================================================
 
   const developerStats = Object.values(
     testRuns.reduce(
@@ -113,57 +112,19 @@ export default async function Home({
     )
   );
 
-  // -----------------------------
-  // Failure reason statistics
-  // -----------------------------
+  // =====================================================
+  // LATEST COMMIT
+  // =====================================================
 
-  const failureReasons = Object.values(
-    testRuns
-      .flatMap((run) => run.testResults)
-      .filter(
-        (test) =>
-          test.status === "failed" ||
-          test.status === "interrupted"
-      )
-      .reduce(
-        (acc, test) => {
-          const reason =
-            test.error?.trim() || "Unknown failure";
-
-          if (!acc[reason]) {
-            acc[reason] = {
-              reason,
-              count: 0,
-            };
-          }
-
-          acc[reason].count++;
-
-          return acc;
-        },
-        {} as Record<
-          string,
-          {
-            reason: string;
-            count: number;
-          }
-        >
-      )
-  );
-
-  // -----------------------------
-  // Latest commit
-  // -----------------------------
-
-  const latestRun = testRuns[0];
+  const latestCommit = testRuns[0];
 
   return (
     <main className="dashboard">
       <div className="dashboard-container">
 
-        {/* =====================================
+        {/* =====================================================
             HEADER
-        ====================================== */}
+        ====================================================== */}
 
         <header className="dashboard-header">
           <div>
@@ -172,65 +133,70 @@ export default async function Home({
             </h1>
 
             <p className="dashboard-subtitle">
-              Monitor test health, failures and developers
+              Monitor commits, test health, failures and developers
             </p>
           </div>
 
-          {latestRun && (
+          {latestCommit && (
             <div>
               <span
-                className={`status-badge ${latestRun.status === "PASSED"
-                  ? "status-passed"
-                  : "status-failed"
-                  }`}
+                className={`status-badge ${
+                  latestCommit.status === "PASSED"
+                    ? "status-passed"
+                    : latestCommit.status === "FAILED"
+                    ? "status-failed"
+                    : ""
+                }`}
               >
-                {latestRun.status === "PASSED"
+                {latestCommit.status === "PASSED"
                   ? "● HEALTHY"
-                  : "● FAILING"}
+                  : latestCommit.status === "FAILED"
+                  ? "● FAILING"
+                  : "● RUNNING"}
               </span>
             </div>
           )}
         </header>
 
-        {/* =====================================
-            STAT CARDS
-        ====================================== */}
+        {/* =====================================================
+            COMMIT STATISTICS
+        ====================================================== */}
 
         <div className="stats-grid">
 
-          {/* Total Runs */}
+          {/* Total Commits */}
 
           <div className="stat-card stat-blue">
             <div className="stat-label">
-              Total Runs
+              Total Commits
             </div>
 
             <div className="stat-value">
-              {totalRuns}
+              {totalCommits}
             </div>
           </div>
 
-          {/* Passed Runs */}
+          {/* Passed Commits */}
 
           <div className="stat-card stat-green">
             <div className="stat-label">
-              Passed Runs
+              Passed Commits
             </div>
 
             <div className="stat-value">
-              {passedRuns}
+              {passedCommits}
             </div>
           </div>
 
-          {/* Failed Runs */}
+          {/* Failed Commits */}
 
           <div className="stat-card stat-red">
             <div className="stat-label">
-              Failed Runs
+              Failed Commits
             </div>
 
             <div className="stat-value">
-              {failedRuns}
+              {failedCommits}
             </div>
           </div>
 
@@ -248,30 +214,24 @@ export default async function Home({
 
         </div>
 
-        {/* =====================================
-            STAT CARDS
-        ====================================== */}
-
-        <div className="stats-grid">
-          {/* Total Runs */}
-          {/* Passed Runs */}
-          {/* Failed Runs */}
-          {/* Pass Rate */}
-        </div>
+        {/* =====================================================
+            FILTERS
+        ====================================================== */}
 
         <Filters />
 
-
-        {/* =====================================
-            FILTERS
-        ====================================== */}
+        {/* =====================================================
+            FILTER INFORMATION
+        ====================================================== */}
 
         <div className="dashboard-section">
           <div className="section-header">
-            <h2 className="section-title">Filters</h2>
+            <h2 className="section-title">
+              Filters
+            </h2>
 
             <p className="section-description">
-              Filter test runs by status, developer or branch
+              Filter commits by status, developer or branch
             </p>
           </div>
 
@@ -283,8 +243,13 @@ export default async function Home({
               padding: "20px 24px",
             }}
           >
+
+            {/* Status */}
+
             <div>
-              <label className="stat-label">Status</label>
+              <label className="stat-label">
+                Status
+              </label>
 
               <select
                 style={{
@@ -294,15 +259,28 @@ export default async function Home({
                   borderRadius: "8px",
                   marginTop: "6px",
                 }}
+                defaultValue={status || ""}
               >
-                <option value="">All statuses</option>
-                <option value="PASSED">Passed</option>
-                <option value="FAILED">Failed</option>
+                <option value="">
+                  All statuses
+                </option>
+
+                <option value="PASSED">
+                  Passed
+                </option>
+
+                <option value="FAILED">
+                  Failed
+                </option>
               </select>
             </div>
 
+            {/* Developer */}
+
             <div>
-              <label className="stat-label">Developer</label>
+              <label className="stat-label">
+                Developer
+              </label>
 
               <select
                 style={{
@@ -313,7 +291,9 @@ export default async function Home({
                   marginTop: "6px",
                 }}
               >
-                <option value="">All developers</option>
+                <option value="">
+                  All developers
+                </option>
 
                 {developerStats.map((developer) => (
                   <option
@@ -326,8 +306,12 @@ export default async function Home({
               </select>
             </div>
 
+            {/* Branch */}
+
             <div>
-              <label className="stat-label">Branch</label>
+              <label className="stat-label">
+                Branch
+              </label>
 
               <select
                 style={{
@@ -338,7 +322,9 @@ export default async function Home({
                   marginTop: "6px",
                 }}
               >
-                <option value="">All branches</option>
+                <option value="">
+                  All branches
+                </option>
 
                 {[
                   ...new Set(
@@ -347,19 +333,22 @@ export default async function Home({
                     )
                   ),
                 ].map((branch) => (
-                  <option key={branch} value={branch}>
+                  <option
+                    key={branch}
+                    value={branch}
+                  >
                     {branch}
                   </option>
                 ))}
               </select>
             </div>
+
           </div>
         </div>
 
-
-        {/* =====================================
-            TEST SUMMARY
-        ====================================== */}
+        {/* =====================================================
+            TEST OVERVIEW
+        ====================================================== */}
 
         <div className="dashboard-section">
 
@@ -376,8 +365,7 @@ export default async function Home({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns:
-                "repeat(3, 1fr)",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: "1px",
               background: "#e5e7eb",
             }}
@@ -446,9 +434,9 @@ export default async function Home({
           </div>
         </div>
 
-        {/* =====================================
+        {/* =====================================================
             WHO IS BREAKING?
-        ====================================== */}
+        ====================================================== */}
 
         <div className="dashboard-section">
 
@@ -482,7 +470,7 @@ export default async function Home({
                 </div>
 
                 <div>
-                  Failed Runs:{" "}
+                  Failed Commits:{" "}
                   <span className="failed-number">
                     {developer.failedRuns}
                   </span>
@@ -503,75 +491,26 @@ export default async function Home({
 
         </div>
 
-        {/* =====================================
-            WHY ARE TESTS BREAKING?
-        ====================================== */}
+        {/* =====================================================
+            RECENT COMMITS
+        ====================================================== */}
 
         <div className="dashboard-section">
 
           <div className="section-header">
             <h2 className="section-title">
-              Why Are Tests Breaking?
+              Recent Commits
             </h2>
 
             <p className="section-description">
-              Most common reasons for test failures
-            </p>
-          </div>
-
-          {failureReasons.length === 0 ? (
-
-            <div className="empty-state">
-              No failures 🎉
-            </div>
-
-          ) : (
-
-            failureReasons
-              .sort((a, b) => b.count - a.count)
-              .map((failure) => (
-
-                <div
-                  className="failure-row"
-                  key={failure.reason}
-                >
-
-                  <div className="failure-reason">
-                    {failure.reason}
-                  </div>
-
-                  <div className="failure-count">
-                    {failure.count}
-                  </div>
-
-                </div>
-
-              ))
-
-          )}
-
-        </div>
-
-        {/* =====================================
-            RECENT TEST RUNS
-        ====================================== */}
-
-        <div className="dashboard-section">
-
-          <div className="section-header">
-            <h2 className="section-title">
-              Recent Test Runs
-            </h2>
-
-            <p className="section-description">
-              Latest Playwright executions
+              Latest Playwright executions by commit
             </p>
           </div>
 
           {testRuns.length === 0 ? (
 
             <div className="empty-state">
-              No test runs available.
+              No commits available.
             </div>
 
           ) : (
@@ -599,14 +538,16 @@ export default async function Home({
                   style={{
                     display: "block",
                     padding: "22px 24px",
-                    borderBottom: "1px solid #f1f5f9",
+                    borderBottom:
+                      "1px solid #f1f5f9",
                     textDecoration: "none",
                     color: "inherit",
                   }}
                 >
+
                   <div className="recent-run-card">
 
-                    {/* Run header */}
+                    {/* Commit header */}
 
                     <div
                       style={{
@@ -625,9 +566,10 @@ export default async function Home({
                             fontWeight: 700,
                             color: "#111827",
                             marginBottom: "6px",
+                            fontFamily: "monospace",
                           }}
                         >
-                          {run.githubRunId}
+                          {run.commitSha}
                         </div>
 
                         <div
@@ -642,17 +584,20 @@ export default async function Home({
                       </div>
 
                       <span
-                        className={`status-badge ${run.status === "PASSED"
-                          ? "status-passed"
-                          : "status-failed"
-                          }`}
+                        className={`status-badge ${
+                          run.status === "PASSED"
+                            ? "status-passed"
+                            : run.status === "FAILED"
+                            ? "status-failed"
+                            : ""
+                        }`}
                       >
                         {run.status}
                       </span>
 
                     </div>
 
-                    {/* Run details */}
+                    {/* Commit details */}
 
                     <div
                       style={{
@@ -701,25 +646,8 @@ export default async function Home({
 
                     </div>
 
-                    {/* Commit */}
-
-                    <div
-                      style={{
-                        marginTop: "14px",
-                        padding: "10px 12px",
-                        background: "#f8fafc",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                        color: "#475569",
-                        fontFamily:
-                          "monospace",
-                      }}
-                    >
-                      Commit:{" "}
-                      {run.commitSha}
-                    </div>
-
                   </div>
+
                 </Link>
               );
             })
@@ -728,110 +656,114 @@ export default async function Home({
 
         </div>
 
-        {/* =====================================
-            LATEST RUN INFORMATION
-        ====================================== */}
+        {/* =====================================================
+            LATEST COMMIT
+        ====================================================== */}
 
-        {
-          latestRun && (
+        {latestCommit && (
+
+          <div
+            className="dashboard-section"
+            style={{
+              marginBottom: "0",
+            }}
+          >
+
+            <div className="section-header">
+
+              <h2 className="section-title">
+                Latest Commit
+              </h2>
+
+              <p className="section-description">
+                Most recent Playwright execution
+              </p>
+
+            </div>
 
             <div
-              className="dashboard-section"
               style={{
-                marginBottom: "0",
+                padding: "24px",
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(2, 1fr)",
+                gap: "18px",
               }}
             >
 
-              <div className="section-header">
-
-                <h2 className="section-title">
-                  Latest Run
-                </h2>
-
-                <p className="section-description">
-                  Most recent Playwright execution
-                </p>
-
-              </div>
-
-              <div
-                style={{
-                  padding: "24px",
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(2, 1fr)",
-                  gap: "18px",
-                }}
-              >
-
-                <div>
-                  <div className="stat-label">
-                    Run ID
-                  </div>
-
-                  <strong>
-                    {latestRun.githubRunId}
-                  </strong>
+              <div>
+                <div className="stat-label">
+                  Commit
                 </div>
 
-                <div>
-                  <div className="stat-label">
-                    Developer
-                  </div>
-
-                  <strong>
-                    {latestRun.developer}
-                  </strong>
-                </div>
-
-                <div>
-                  <div className="stat-label">
-                    Branch
-                  </div>
-
-                  <strong>
-                    {latestRun.branch || "main"}
-                  </strong>
-                </div>
-
-                <div>
-                  <div className="stat-label">
-                    Event
-                  </div>
-
-                  <strong>
-                    {latestRun.event || "unknown"}
-                  </strong>
-                </div>
-
-                <div
+                <code
                   style={{
-                    gridColumn: "1 / -1",
+                    background: "#f1f5f9",
+                    padding: "8px 10px",
+                    borderRadius: "6px",
+                    display: "inline-block",
+                    fontSize: "12px",
                   }}
                 >
-                  <div className="stat-label">
-                    Commit
-                  </div>
+                  {latestCommit.commitSha}
+                </code>
+              </div>
 
-                  <code
-                    style={{
-                      background: "#f1f5f9",
-                      padding: "8px 10px",
-                      borderRadius: "6px",
-                      display: "inline-block",
-                      fontSize: "12px",
-                    }}
-                  >
-                    {latestRun.commitSha}
-                  </code>
+              <div>
+                <div className="stat-label">
+                  Developer
                 </div>
 
+                <strong>
+                  {latestCommit.developer}
+                </strong>
+              </div>
+
+              <div>
+                <div className="stat-label">
+                  Branch
+                </div>
+
+                <strong>
+                  {latestCommit.branch || "main"}
+                </strong>
+              </div>
+
+              <div>
+                <div className="stat-label">
+                  Event
+                </div>
+
+                <strong>
+                  {latestCommit.event || "unknown"}
+                </strong>
+              </div>
+
+              <div>
+                <div className="stat-label">
+                  Repository
+                </div>
+
+                <strong>
+                  {latestCommit.repository}
+                </strong>
+              </div>
+
+              <div>
+                <div className="stat-label">
+                  Tests
+                </div>
+
+                <strong>
+                  {latestCommit.testResults.length}
+                </strong>
               </div>
 
             </div>
 
-          )
-        }
+          </div>
+
+        )}
 
       </div>
     </main>
