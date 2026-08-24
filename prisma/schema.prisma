@@ -8,17 +8,18 @@ datasource db {
 }
 
 model TestRun {
-  id          Int      @id @default(autoincrement())
-  githubRunId String   @unique
-  commitSha   String
-  developer   String
-  branch      String?
-  status      String
-  event       String?
-  repository  String
-  startedAt   DateTime @default(now())
-  createdAt   DateTime @default(now())
-  prNumber    Int?
+  id           Int      @id @default(autoincrement())
+  githubRunId  String   @unique
+  commitSha    String
+  developer    String
+  branch       String?
+  status       String
+  event        String?
+  repository   String
+  startedAt    DateTime @default(now())
+  createdAt    DateTime @default(now())
+  finishedTime DateTime?
+  prNumber     Int?
 
   testResults TestResult[]
 
