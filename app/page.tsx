@@ -161,34 +161,6 @@ export default async function Home({
 
   const latestRun = testRuns[0];
 
-  // ============================================================
-  // FORMAT FINISHED TIME SAFELY
-  // ============================================================
-
-  function formatFinishedTime(
-    value: Date | string | null | undefined
-  ) {
-    if (!value) {
-      return "Not available";
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return "Not available";
-    }
-
-    return date.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  }
-
   return (
     <main className="dashboard">
       <div className="dashboard-container">
@@ -694,23 +666,6 @@ export default async function Home({
 
                     </div>
 
-                    {/* FINISHED TIME */}
-
-                    <div
-                      style={{
-                        marginTop: "14px",
-                        fontSize: "13px",
-                        color: "#475569",
-                      }}
-                    >
-                      🕒 Finished:{" "}
-                      <strong>
-                        {formatFinishedTime(
-                          run.finishedTime
-                        )}
-                      </strong>
-                    </div>
-
                     {/* FULL COMMIT SHA */}
 
                     <div
@@ -1049,18 +1004,6 @@ export default async function Home({
                 <strong>
                   {latestRun.event ||
                     "unknown"}
-                </strong>
-              </div>
-
-              <div>
-                <div className="stat-label">
-                  Finished
-                </div>
-
-                <strong>
-                  {formatFinishedTime(
-                    latestRun.finishedTime
-                  )}
                 </strong>
               </div>
 
