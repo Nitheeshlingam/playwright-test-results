@@ -6,8 +6,19 @@ import Filters from "./filters";
 
 const COMMITS_PER_PAGE = 10;
 
-function formatRunDate(value: Date) {
-  return value.toLocaleString("en-IN", {
+function formatRunDate(value: Date | string | null | undefined) {
+  if (!value) {
+    return "Not available";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
+
+  return date.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
