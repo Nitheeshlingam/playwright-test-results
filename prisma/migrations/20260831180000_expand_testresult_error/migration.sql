@@ -1,0 +1,2 @@
+ALTER TABLE `testresult`
+  MODIFY COLUMN `error` LONGTEXT NULL;
