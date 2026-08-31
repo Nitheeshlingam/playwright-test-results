@@ -1,12 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
-function getTestId(name: string) {
-  if (name.trim().toLowerCase() === "authenticate") return "authenticate";
-  const match = name.trim().match(/^([A-Za-z0-9-]+)/);
-  return match ? match[1] : name.trim();
-}
-
 type PageProps = {
   params: Promise<{
     id: string;
@@ -95,40 +89,6 @@ export default async function CommitDetailsPage({
   const skipped = run.testResults.filter(
     (test) => test.status === "skipped"
   ).length;
-
-  // =====================================================
-  // HISTORICAL TEST FAILURE RATES
-  // =====================================================
-
-  const runTestIds = Array.from(new Set(run.testResults.map(t => getTestId(t.testName))));
-  
-  const historicalResults = await prisma.testResult.findMany({
-    where: {
-      OR: runTestIds.map(id => 
-        id === "authenticate" 
-          ? { testName: id } 
-          : { testName: { startsWith: id } }
-      )
-    },
-    select: {
-      testName: true,
-      status: true,
-    }
-  });
-
-  const historicalStats = new Map<string, { total: number; failed: number }>();
-  
-  for (const tr of historicalResults) {
-    const id = getTestId(tr.testName);
-    if (!historicalStats.has(id)) {
-      historicalStats.set(id, { total: 0, failed: 0 });
-    }
-    const stat = historicalStats.get(id)!;
-    stat.total++;
-    if (tr.status === "failed" || tr.status === "interrupted") {
-      stat.failed++;
-    }
-  }
 
   return (
     <main className="dashboard">
@@ -498,74 +458,6 @@ export default async function CommitDetailsPage({
               );
 
             })
-
-          )}
-
-        </div>
-
-        {/* =====================================================
-            TEST FAILURE PERCENTAGES
-        ====================================================== */}
-
-        <div className="dashboard-section">
-
-          <div className="section-header">
-
-            <h2 className="section-title">
-              Test Case Failure Rates
-            </h2>
-
-            <p className="section-description">
-              Historical failure percentage for each test case
-            </p>
-
-          </div>
-
-          {runTestIds.length === 0 ? (
-            
-            <div className="empty-state">
-              No test cases found.
-            </div>
-
-          ) : (
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(300px, 1fr))",
-                gap: "16px",
-                padding: "20px 24px",
-              }}
-            >
-              {runTestIds.map(id => {
-                const stats = historicalStats.get(id) || { total: 0, failed: 0 };
-                const percent = stats.total === 0 ? 0 : Math.round((stats.failed / stats.total) * 100);
-                
-                return (
-                  <div key={id} style={{
-                    padding: "16px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    background: "#f9fafb",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
-                  }}>
-                    <div style={{ fontWeight: 600, color: "#1f2937", wordBreak: "break-all", paddingRight: "10px" }}>
-                      {id}
-                    </div>
-                    <div style={{
-                      fontSize: "20px",
-                      fontWeight: 700,
-                      color: percent > 50 ? "#dc2626" : percent > 0 ? "#d97706" : "#16a34a"
-                    }}>
-                      {percent}%
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
 
           )}
 

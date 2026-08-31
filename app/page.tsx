@@ -156,6 +156,39 @@ export default async function Home({
   );
 
   // ============================================================
+  // TEST CASE FAILURE RATES
+  // ============================================================
+
+  const getTestId = (name: string) => {
+    if (name.trim().toLowerCase() === "authenticate") return "authenticate";
+    const match = name.trim().match(/^([A-Za-z0-9-]+)/);
+    return match ? match[1] : name.trim();
+  };
+
+  const testCaseStats = new Map<string, { total: number; failed: number }>();
+
+  testRuns.forEach(run => {
+    run.testResults.forEach(test => {
+      const id = getTestId(test.testName);
+      if (!testCaseStats.has(id)) {
+        testCaseStats.set(id, { total: 0, failed: 0 });
+      }
+      const stat = testCaseStats.get(id)!;
+      stat.total++;
+      if (test.status === "failed" || test.status === "interrupted") {
+        stat.failed++;
+      }
+    });
+  });
+
+  const testCaseFailureRates = Array.from(testCaseStats.entries())
+    .map(([id, stats]) => ({
+      id,
+      percent: stats.total === 0 ? 0 : Math.round((stats.failed / stats.total) * 100)
+    }))
+    .sort((a, b) => b.percent - a.percent);
+
+  // ============================================================
   // LATEST COMMIT
   // ============================================================
 
@@ -501,6 +534,59 @@ export default async function Home({
         </div>
 
         {/* =====================================================
+            TEST CASE FAILURE RATES
+        ====================================================== */}
+
+        <div className="dashboard-section">
+          <div className="section-header">
+            <h2 className="section-title">
+              Test Case Failure Rates
+            </h2>
+            <p className="section-description">
+              Failure percentage across selected commits
+            </p>
+          </div>
+
+          {testCaseFailureRates.length === 0 ? (
+            <div className="empty-state">
+              No test cases available.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "16px",
+                padding: "20px 24px",
+              }}
+            >
+              {testCaseFailureRates.map(({ id, percent }) => (
+                <div key={id} style={{
+                  padding: "16px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  background: "#f9fafb",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
+                  <div style={{ fontWeight: 600, color: "#1f2937", wordBreak: "break-all", paddingRight: "10px" }}>
+                    {id}
+                  </div>
+                  <div style={{
+                    fontSize: "20px",
+                    fontWeight: 700,
+                    color: percent > 50 ? "#dc2626" : percent > 0 ? "#d97706" : "#16a34a"
+                  }}>
+                    {percent}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* =====================================================
             COMMITS
         ====================================================== */}
 
@@ -545,6 +631,7 @@ export default async function Home({
                 <Link
                   key={run.id}
                   href={`/runs/${run.id}`}
+                  prefetch={false}
                   className="run-card-link"
                   style={{
                     display: "block",
