@@ -33,7 +33,7 @@ model TestResult {
   fileName   String?
   status     String
   durationMs Int?
-  error      String?  @db.Text
+  error      String?  @db.LongText
   screenshot String?
   video      String?
   trace      String?
