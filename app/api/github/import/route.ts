@@ -97,51 +97,69 @@ export async function POST(request: Request) {
     // 6. CREATE / UPDATE TEST RUN
     // =====================================================
 
-    const testRun = await prisma.testRun.upsert({
-      where: {
-        githubRunId: String(githubRun.id),
-      },
+const testRun = await prisma.testRun.upsert({
+  where: {
+    githubRunId: String(githubRun.id),
+  },
 
-      update: {
-        commitSha: githubRun.head_sha,
+  update: {
+    commitSha: githubRun.head_sha,
 
-        developer:
-          githubRun.actor?.login ||
-          githubRun.triggering_actor?.login ||
-          "Unknown",
+    developer:
+      githubRun.actor?.login ||
+      githubRun.triggering_actor?.login ||
+      "Unknown",
 
-        branch: githubRun.head_branch || null,
+    branch:
+      githubRun.head_branch || null,
 
-        status,
+    status,
 
-        event: githubRun.event || null,
+    event:
+      githubRun.event || null,
 
-        repository:
-          githubRun.repository?.full_name ||
-          `${owner}/${repo}`,
-      },
+    repository:
+      githubRun.repository?.full_name ||
+      `${owner}/${repo}`,
 
-      create: {
-        githubRunId: String(githubRun.id),
+    // Actual GitHub workflow execution time
+    startedAt: githubRun.run_started_at
+      ? new Date(githubRun.run_started_at)
+      : githubRun.created_at
+      ? new Date(githubRun.created_at)
+      : new Date(),
+  },
 
-        commitSha: githubRun.head_sha,
+  create: {
+    githubRunId: String(githubRun.id),
 
-        developer:
-          githubRun.actor?.login ||
-          githubRun.triggering_actor?.login ||
-          "Unknown",
+    commitSha: githubRun.head_sha,
 
-        branch: githubRun.head_branch || null,
+    developer:
+      githubRun.actor?.login ||
+      githubRun.triggering_actor?.login ||
+      "Unknown",
 
-        status,
+    branch:
+      githubRun.head_branch || null,
 
-        event: githubRun.event || null,
+    status,
 
-        repository:
-          githubRun.repository?.full_name ||
-          `${owner}/${repo}`,
-      },
-    });
+    event:
+      githubRun.event || null,
+
+    repository:
+      githubRun.repository?.full_name ||
+      `${owner}/${repo}`,
+
+    // Actual GitHub workflow execution time
+    startedAt: githubRun.run_started_at
+      ? new Date(githubRun.run_started_at)
+      : githubRun.created_at
+      ? new Date(githubRun.created_at)
+      : new Date(),
+  },
+});
 
     // =====================================================
     // 7. FETCH GITHUB ARTIFACTS

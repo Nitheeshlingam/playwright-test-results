@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -8,18 +10,17 @@ datasource db {
 }
 
 model TestRun {
-  id           Int      @id @default(autoincrement())
-  githubRunId  String   @unique
-  commitSha    String
-  developer    String
-  branch       String?
-  status       String
-  event        String?
-  repository   String
-  startedAt    DateTime @default(now())
-  createdAt    DateTime @default(now())
-  finishedTime DateTime?
-  prNumber     Int?
+  id          Int      @id @default(autoincrement())
+  githubRunId String   @unique
+  commitSha   String
+  developer   String
+  branch      String?
+  status      String
+  event       String?
+  repository  String
+  startedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  prNumber    Int?
 
   testResults TestResult[]
 
@@ -33,7 +34,7 @@ model TestResult {
   fileName   String?
   status     String
   durationMs Int?
-  error      String?  @db.Text
+  error      String?
   screenshot String?
   video      String?
   trace      String?
@@ -42,5 +43,4 @@ model TestResult {
   testRun TestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
 
   @@index([testRunId], map: "TestResult_testRunId_idx")
-  @@map("testresult")
 }

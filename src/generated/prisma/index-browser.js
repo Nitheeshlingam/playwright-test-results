@@ -131,7 +131,6 @@ exports.Prisma.TestRunScalarFieldEnum = {
   repository: 'repository',
   startedAt: 'startedAt',
   createdAt: 'createdAt',
-  finishedTime: 'finishedTime',
   prNumber: 'prNumber'
 };
 

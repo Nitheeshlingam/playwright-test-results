@@ -1032,7 +1032,6 @@ export namespace Prisma {
     repository: string | null
     startedAt: Date | null
     createdAt: Date | null
-    finishedTime: Date | null
     prNumber: number | null
   }
 
@@ -1047,7 +1046,6 @@ export namespace Prisma {
     repository: string | null
     startedAt: Date | null
     createdAt: Date | null
-    finishedTime: Date | null
     prNumber: number | null
   }
 
@@ -1062,7 +1060,6 @@ export namespace Prisma {
     repository: number
     startedAt: number
     createdAt: number
-    finishedTime: number
     prNumber: number
     _all: number
   }
@@ -1089,7 +1086,6 @@ export namespace Prisma {
     repository?: true
     startedAt?: true
     createdAt?: true
-    finishedTime?: true
     prNumber?: true
   }
 
@@ -1104,7 +1100,6 @@ export namespace Prisma {
     repository?: true
     startedAt?: true
     createdAt?: true
-    finishedTime?: true
     prNumber?: true
   }
 
@@ -1119,7 +1114,6 @@ export namespace Prisma {
     repository?: true
     startedAt?: true
     createdAt?: true
-    finishedTime?: true
     prNumber?: true
     _all?: true
   }
@@ -1221,7 +1215,6 @@ export namespace Prisma {
     repository: string
     startedAt: Date
     createdAt: Date
-    finishedTime: Date | null
     prNumber: number | null
     _count: TestRunCountAggregateOutputType | null
     _avg: TestRunAvgAggregateOutputType | null
@@ -1255,7 +1248,6 @@ export namespace Prisma {
     repository?: boolean
     startedAt?: boolean
     createdAt?: boolean
-    finishedTime?: boolean
     prNumber?: boolean
     testResults?: boolean | TestRun$testResultsArgs<ExtArgs>
     _count?: boolean | TestRunCountOutputTypeDefaultArgs<ExtArgs>
@@ -1274,11 +1266,10 @@ export namespace Prisma {
     repository?: boolean
     startedAt?: boolean
     createdAt?: boolean
-    finishedTime?: boolean
     prNumber?: boolean
   }
 
-  export type TestRunOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "githubRunId" | "commitSha" | "developer" | "branch" | "status" | "event" | "repository" | "startedAt" | "createdAt" | "finishedTime" | "prNumber", ExtArgs["result"]["testRun"]>
+  export type TestRunOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "githubRunId" | "commitSha" | "developer" | "branch" | "status" | "event" | "repository" | "startedAt" | "createdAt" | "prNumber", ExtArgs["result"]["testRun"]>
   export type TestRunInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     testResults?: boolean | TestRun$testResultsArgs<ExtArgs>
     _count?: boolean | TestRunCountOutputTypeDefaultArgs<ExtArgs>
@@ -1300,7 +1291,6 @@ export namespace Prisma {
       repository: string
       startedAt: Date
       createdAt: Date
-      finishedTime: Date | null
       prNumber: number | null
     }, ExtArgs["result"]["testRun"]>
     composites: {}
@@ -1682,7 +1672,6 @@ export namespace Prisma {
     readonly repository: FieldRef<"TestRun", 'String'>
     readonly startedAt: FieldRef<"TestRun", 'DateTime'>
     readonly createdAt: FieldRef<"TestRun", 'DateTime'>
-    readonly finishedTime: FieldRef<"TestRun", 'DateTime'>
     readonly prNumber: FieldRef<"TestRun", 'Int'>
   }
     
@@ -3141,7 +3130,6 @@ export namespace Prisma {
     repository: 'repository',
     startedAt: 'startedAt',
     createdAt: 'createdAt',
-    finishedTime: 'finishedTime',
     prNumber: 'prNumber'
   };
 
@@ -3257,7 +3245,6 @@ export namespace Prisma {
     repository?: StringFilter<"TestRun"> | string
     startedAt?: DateTimeFilter<"TestRun"> | Date | string
     createdAt?: DateTimeFilter<"TestRun"> | Date | string
-    finishedTime?: DateTimeNullableFilter<"TestRun"> | Date | string | null
     prNumber?: IntNullableFilter<"TestRun"> | number | null
     testResults?: TestResultListRelationFilter
   }
@@ -3273,7 +3260,6 @@ export namespace Prisma {
     repository?: SortOrder
     startedAt?: SortOrder
     createdAt?: SortOrder
-    finishedTime?: SortOrderInput | SortOrder
     prNumber?: SortOrderInput | SortOrder
     testResults?: TestResultOrderByRelationAggregateInput
     _relevance?: TestRunOrderByRelevanceInput
@@ -3293,7 +3279,6 @@ export namespace Prisma {
     repository?: StringFilter<"TestRun"> | string
     startedAt?: DateTimeFilter<"TestRun"> | Date | string
     createdAt?: DateTimeFilter<"TestRun"> | Date | string
-    finishedTime?: DateTimeNullableFilter<"TestRun"> | Date | string | null
     prNumber?: IntNullableFilter<"TestRun"> | number | null
     testResults?: TestResultListRelationFilter
   }, "id" | "githubRunId">
@@ -3309,7 +3294,6 @@ export namespace Prisma {
     repository?: SortOrder
     startedAt?: SortOrder
     createdAt?: SortOrder
-    finishedTime?: SortOrderInput | SortOrder
     prNumber?: SortOrderInput | SortOrder
     _count?: TestRunCountOrderByAggregateInput
     _avg?: TestRunAvgOrderByAggregateInput
@@ -3332,7 +3316,6 @@ export namespace Prisma {
     repository?: StringWithAggregatesFilter<"TestRun"> | string
     startedAt?: DateTimeWithAggregatesFilter<"TestRun"> | Date | string
     createdAt?: DateTimeWithAggregatesFilter<"TestRun"> | Date | string
-    finishedTime?: DateTimeNullableWithAggregatesFilter<"TestRun"> | Date | string | null
     prNumber?: IntNullableWithAggregatesFilter<"TestRun"> | number | null
   }
 
@@ -3434,7 +3417,6 @@ export namespace Prisma {
     repository: string
     startedAt?: Date | string
     createdAt?: Date | string
-    finishedTime?: Date | string | null
     prNumber?: number | null
     testResults?: TestResultCreateNestedManyWithoutTestRunInput
   }
@@ -3450,7 +3432,6 @@ export namespace Prisma {
     repository: string
     startedAt?: Date | string
     createdAt?: Date | string
-    finishedTime?: Date | string | null
     prNumber?: number | null
     testResults?: TestResultUncheckedCreateNestedManyWithoutTestRunInput
   }
@@ -3465,7 +3446,6 @@ export namespace Prisma {
     repository?: StringFieldUpdateOperationsInput | string
     startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    finishedTime?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     prNumber?: NullableIntFieldUpdateOperationsInput | number | null
     testResults?: TestResultUpdateManyWithoutTestRunNestedInput
   }
@@ -3481,7 +3461,6 @@ export namespace Prisma {
     repository?: StringFieldUpdateOperationsInput | string
     startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    finishedTime?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     prNumber?: NullableIntFieldUpdateOperationsInput | number | null
     testResults?: TestResultUncheckedUpdateManyWithoutTestRunNestedInput
   }
@@ -3497,7 +3476,6 @@ export namespace Prisma {
     repository: string
     startedAt?: Date | string
     createdAt?: Date | string
-    finishedTime?: Date | string | null
     prNumber?: number | null
   }
 
@@ -3511,7 +3489,6 @@ export namespace Prisma {
     repository?: StringFieldUpdateOperationsInput | string
     startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    finishedTime?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     prNumber?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -3526,7 +3503,6 @@ export namespace Prisma {
     repository?: StringFieldUpdateOperationsInput | string
     startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    finishedTime?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     prNumber?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -3676,17 +3652,6 @@ export namespace Prisma {
     not?: NestedDateTimeFilter<$PrismaModel> | Date | string
   }
 
-  export type DateTimeNullableFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
-    in?: Date[] | string[] | null
-    notIn?: Date[] | string[] | null
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
-  }
-
   export type IntNullableFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel> | null
     in?: number[] | null
@@ -3730,7 +3695,6 @@ export namespace Prisma {
     repository?: SortOrder
     startedAt?: SortOrder
     createdAt?: SortOrder
-    finishedTime?: SortOrder
     prNumber?: SortOrder
   }
 
@@ -3750,7 +3714,6 @@ export namespace Prisma {
     repository?: SortOrder
     startedAt?: SortOrder
     createdAt?: SortOrder
-    finishedTime?: SortOrder
     prNumber?: SortOrder
   }
 
@@ -3765,7 +3728,6 @@ export namespace Prisma {
     repository?: SortOrder
     startedAt?: SortOrder
     createdAt?: SortOrder
-    finishedTime?: SortOrder
     prNumber?: SortOrder
   }
 
@@ -3838,20 +3800,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedDateTimeFilter<$PrismaModel>
     _max?: NestedDateTimeFilter<$PrismaModel>
-  }
-
-  export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
-    in?: Date[] | string[] | null
-    notIn?: Date[] | string[] | null
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedDateTimeNullableFilter<$PrismaModel>
-    _max?: NestedDateTimeNullableFilter<$PrismaModel>
   }
 
   export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -3959,10 +3907,6 @@ export namespace Prisma {
 
   export type DateTimeFieldUpdateOperationsInput = {
     set?: Date | string
-  }
-
-  export type NullableDateTimeFieldUpdateOperationsInput = {
-    set?: Date | string | null
   }
 
   export type NullableIntFieldUpdateOperationsInput = {
@@ -4075,17 +4019,6 @@ export namespace Prisma {
     not?: NestedDateTimeFilter<$PrismaModel> | Date | string
   }
 
-  export type NestedDateTimeNullableFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
-    in?: Date[] | string[] | null
-    notIn?: Date[] | string[] | null
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
-  }
-
   export type NestedIntNullableFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel> | null
     in?: number[] | null
@@ -4172,20 +4105,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedDateTimeFilter<$PrismaModel>
     _max?: NestedDateTimeFilter<$PrismaModel>
-  }
-
-  export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
-    in?: Date[] | string[] | null
-    notIn?: Date[] | string[] | null
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedDateTimeNullableFilter<$PrismaModel>
-    _max?: NestedDateTimeNullableFilter<$PrismaModel>
   }
 
   export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -4293,7 +4212,6 @@ export namespace Prisma {
     repository: string
     startedAt?: Date | string
     createdAt?: Date | string
-    finishedTime?: Date | string | null
     prNumber?: number | null
   }
 
@@ -4308,7 +4226,6 @@ export namespace Prisma {
     repository: string
     startedAt?: Date | string
     createdAt?: Date | string
-    finishedTime?: Date | string | null
     prNumber?: number | null
   }
 
@@ -4338,7 +4255,6 @@ export namespace Prisma {
     repository?: StringFieldUpdateOperationsInput | string
     startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    finishedTime?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     prNumber?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -4353,7 +4269,6 @@ export namespace Prisma {
     repository?: StringFieldUpdateOperationsInput | string
     startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    finishedTime?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     prNumber?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
