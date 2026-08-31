@@ -11,6 +11,10 @@ const ARTIFACT_RETRY_COUNT = 15;
 const ARTIFACT_RETRY_DELAY_MS = 2000;
 const ARTIFACT_PAGE_SIZE = 100;
 
+// Keep extremely large error messages from unnecessarily filling the DB.
+// The database column is Text, so this is mainly a safety limit.
+const MAX_ERROR_LENGTH = 20000;
+
 type GitHubArtifact = {
   id: number;
   name: string;
@@ -48,12 +52,43 @@ function isValidDate(value: unknown): value is string {
   return !Number.isNaN(new Date(value).getTime());
 }
 
-/**
- * ============================================================
- * FETCH ALL ARTIFACTS
- * ============================================================
- */
+function safeError(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
 
+  let message = "";
+
+  if (typeof value === "string") {
+    message = value;
+  } else if (
+    typeof value === "object" &&
+    value !== null &&
+    "message" in value
+  ) {
+    message = String(
+      (value as { message?: unknown }).message ?? ""
+    );
+  } else {
+    try {
+      message = JSON.stringify(value);
+    } catch {
+      message = String(value);
+    }
+  }
+
+  if (!message) {
+    return null;
+  }
+
+  return message.length > MAX_ERROR_LENGTH
+    ? `${message.substring(0, MAX_ERROR_LENGTH)}\n...[truncated]`
+    : message;
+}
+
+/**
+ * Fetch all artifacts belonging to the GitHub workflow run.
+ */
 async function fetchAllArtifacts(
   owner: string,
   repo: string,
@@ -98,11 +133,8 @@ async function fetchAllArtifacts(
 }
 
 /**
- * ============================================================
- * ARTIFACT PRIORITY
- * ============================================================
+ * Give Playwright-related artifacts higher priority.
  */
-
 function artifactScore(artifact: GitHubArtifact) {
   const name = artifact.name.toLowerCase();
 
@@ -150,11 +182,8 @@ function getArtifactCandidates(
 }
 
 /**
- * ============================================================
- * PLAYWRIGHT REPORT DETECTION
- * ============================================================
+ * Detect Playwright JSON report.
  */
-
 function isPlaywrightReport(value: any): boolean {
   return Boolean(
     value &&
@@ -163,6 +192,10 @@ function isPlaywrightReport(value: any): boolean {
   );
 }
 
+/**
+ * Recursively search an arbitrary JSON object for
+ * a Playwright report.
+ */
 function findReportObject(
   value: any,
   seen = new Set<any>()
@@ -183,10 +216,7 @@ function findReportObject(
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      const found = findReportObject(
-        item,
-        seen
-      );
+      const found = findReportObject(item, seen);
 
       if (found) {
         return found;
@@ -197,10 +227,7 @@ function findReportObject(
   }
 
   for (const child of Object.values(value)) {
-    const found = findReportObject(
-      child,
-      seen
-    );
+    const found = findReportObject(child, seen);
 
     if (found) {
       return found;
@@ -211,19 +238,14 @@ function findReportObject(
 }
 
 /**
- * ============================================================
- * FIND PLAYWRIGHT JSON INSIDE ZIP
- * ============================================================
+ * Find Playwright JSON report inside an artifact ZIP.
  */
-
 function findPlaywrightReport(buffer: Buffer) {
   const zip = new AdmZip(buffer);
 
   const entries = zip
     .getEntries()
-    .filter(
-      (entry) => !entry.isDirectory
-    );
+    .filter((entry) => !entry.isDirectory);
 
   const preferredFiles = [
     "results.json",
@@ -232,11 +254,10 @@ function findPlaywrightReport(buffer: Buffer) {
     "report.json",
   ];
 
-  const jsonEntries = entries.filter(
-    (entry) =>
-      entry.entryName
-        .toLowerCase()
-        .endsWith(".json")
+  const jsonEntries = entries.filter((entry) =>
+    entry.entryName
+      .toLowerCase()
+      .endsWith(".json")
   );
 
   jsonEntries.sort((a, b) => {
@@ -296,11 +317,8 @@ function findPlaywrightReport(buffer: Buffer) {
 }
 
 /**
- * ============================================================
- * DOWNLOAD ARTIFACT
- * ============================================================
+ * Download a GitHub artifact and locate the Playwright report.
  */
-
 async function downloadReport(
   owner: string,
   repo: string,
@@ -333,11 +351,8 @@ async function downloadReport(
 }
 
 /**
- * ============================================================
- * COLLECT TESTS FROM PLAYWRIGHT REPORT
- * ============================================================
+ * Extract every executed Playwright test.
  */
-
 function collectTests(
   suites: any[],
   output: PlaywrightTestResult[] = [],
@@ -386,10 +401,11 @@ function collectTests(
                 ? result.duration
                 : 0,
 
-            error:
+            error: safeError(
               result.error?.message ||
-              result.errors?.[0]?.message ||
-              null,
+                result.errors?.[0]?.message ||
+                null
+            ),
           });
         }
       }
@@ -406,11 +422,8 @@ function collectTests(
 }
 
 /**
- * ============================================================
- * CONVERT PLAYWRIGHT STATUS TO DASHBOARD STATUS
- * ============================================================
+ * Calculate dashboard status from actual Playwright results.
  */
-
 function calculateFinalStatus(
   testResults: PlaywrightTestResult[]
 ): "PASSED" | "FAILED" {
@@ -428,11 +441,8 @@ function calculateFinalStatus(
 }
 
 /**
- * ============================================================
- * POST
- * ============================================================
+ * POST /api/github/import
  */
-
 export async function POST(
   request: Request
 ) {
@@ -477,11 +487,8 @@ export async function POST(
       githubHeaders(token);
 
     /**
-     * ========================================================
-     * FETCH GITHUB WORKFLOW RUN
-     * ========================================================
+     * Fetch GitHub workflow run.
      */
-
     const githubUrl =
       `https://api.github.com/repos/${owner}/${repo}` +
       `/actions/runs/${runId}`;
@@ -510,23 +517,15 @@ export async function POST(
       );
     }
 
-    /**
-     * ========================================================
-     * IMPORTANT:
-     *
-     * The workflow calling this API can itself still be
-     * "in_progress".
-     *
-     * DO NOT convert in_progress into FAILED.
-     * ========================================================
-     */
-
     const workflowStatus =
       githubRun.status;
 
     const workflowConclusion =
       githubRun.conclusion;
 
+    /**
+     * Preserve the actual GitHub start time.
+     */
     const startedAt =
       isValidDate(
         githubRun.run_started_at
@@ -543,48 +542,39 @@ export async function POST(
           : new Date();
 
     /**
-     * ========================================================
-     * INITIAL RUN STATUS
-     * ========================================================
-     *
-     * If GitHub is still running, use PASSED temporarily.
-     * Once Playwright results are available, the real status
-     * will be calculated from the tests.
+     * Never convert in_progress into FAILED.
      */
-
     let initialStatus:
       | "PASSED"
       | "FAILED";
 
     if (
       workflowConclusion ===
-      "failure" ||
+        "failure" ||
       workflowConclusion ===
-      "cancelled" ||
+        "cancelled" ||
       workflowConclusion ===
-      "timed_out"
+        "timed_out"
     ) {
       initialStatus = "FAILED";
-    } else if (
-      workflowConclusion ===
-      "success"
-    ) {
-      initialStatus = "PASSED";
     } else {
-      /**
-       * in_progress / queued / waiting
-       *
-       * Do NOT mark this as FAILED.
-       */
       initialStatus = "PASSED";
     }
 
     /**
-     * ========================================================
-     * CREATE / UPDATE TEST RUN
-     * ========================================================
+     * Create or update the TestRun.
+     *
+     * One GitHub run = one TestRun.
+     *
+     * This is important for:
+     *
+     * Push 1 -> TestRun 1
+     * Push 2 -> TestRun 2
+     * Push 3 -> TestRun 3
+     *
+     * Therefore the dashboard can calculate
+     * test-case failure rate across pushes.
      */
-
     const testRun =
       await prisma.testRun.upsert({
         where: {
@@ -598,23 +588,22 @@ export async function POST(
 
           developer:
             githubRun.actor?.login ||
-            githubRun.triggering_actor
-              ?.login ||
+            githubRun.triggering_actor?.login ||
             "Unknown",
 
           branch:
             githubRun.head_branch ||
             null,
 
-          status: initialStatus,
+          status:
+            initialStatus,
 
           event:
             githubRun.event ||
             null,
 
           repository:
-            githubRun.repository
-              ?.full_name ||
+            githubRun.repository?.full_name ||
             `${owner}/${repo}`,
 
           startedAt,
@@ -629,23 +618,22 @@ export async function POST(
 
           developer:
             githubRun.actor?.login ||
-            githubRun.triggering_actor
-              ?.login ||
+            githubRun.triggering_actor?.login ||
             "Unknown",
 
           branch:
             githubRun.head_branch ||
             null,
 
-          status: initialStatus,
+          status:
+            initialStatus,
 
           event:
             githubRun.event ||
             null,
 
           repository:
-            githubRun.repository
-              ?.full_name ||
+            githubRun.repository?.full_name ||
             `${owner}/${repo}`,
 
           startedAt,
@@ -653,11 +641,8 @@ export async function POST(
       });
 
     /**
-     * ========================================================
-     * FIND PLAYWRIGHT ARTIFACT
-     * ========================================================
+     * Find Playwright artifact.
      */
-
     let artifacts: GitHubArtifact[] =
       [];
 
@@ -672,8 +657,8 @@ export async function POST(
       | null = null;
 
     /**
-     * Try multiple times because GitHub may take a few
-     * seconds to make the artifact available.
+     * GitHub sometimes needs time to publish
+     * the artifact after the workflow finishes.
      */
     for (
       let attempt = 1;
@@ -706,7 +691,9 @@ export async function POST(
           )
         );
 
-        for (const candidate of candidates) {
+        for (
+          const candidate of candidates
+        ) {
           try {
             const parsed =
               await downloadReport(
@@ -760,31 +747,21 @@ export async function POST(
     }
 
     /**
-     * ========================================================
-     * NO ARTIFACT YET
-     * ========================================================
+     * No Playwright report found.
      */
-
     if (
       !selectedArtifact ||
       !report
     ) {
-      /**
-       * IMPORTANT:
-       *
-       * Do not return HTTP 409 just because the workflow is
-       * still in_progress.
-       *
-       * The workflow may have uploaded no artifact yet.
-       */
-
       return NextResponse.json({
         success: true,
 
         testResultsImported: 0,
 
         message:
-          "GitHub run was received, but the Playwright artifact is not available yet.",
+          workflowStatus === "completed"
+            ? "GitHub workflow is completed, but no Playwright JSON artifact could be found."
+            : "GitHub workflow has not finished or the Playwright artifact is not available yet.",
 
         runId,
 
@@ -792,7 +769,8 @@ export async function POST(
           testRun.id,
 
         githubRun: {
-          id: githubRun.id,
+          id:
+            githubRun.id,
 
           name:
             githubRun.name,
@@ -833,11 +811,8 @@ export async function POST(
     }
 
     /**
-     * ========================================================
-     * EXTRACT TEST RESULTS
-     * ========================================================
+     * Extract Playwright test results.
      */
-
     const testResults =
       collectTests(
         report.suites
@@ -878,105 +853,89 @@ export async function POST(
     }
 
     /**
-     * ========================================================
-     * CALCULATE REAL TEST STATUS
-     * ========================================================
-     *
-     * This is the important part.
-     *
-     * We use Playwright's actual test results instead of
-     * GitHub's temporary "in_progress" state.
+     * Calculate final status from Playwright,
+     * not temporary GitHub workflow state.
      */
-
     const finalStatus =
       calculateFinalStatus(
         testResults
       );
 
     /**
-     * ========================================================
-     * SAVE TEST RESULTS
-     * ========================================================
+     * Save test results.
      */
-
     const updatedTestRun =
       await prisma.$transaction(
         async (tx) => {
           /**
-           * Remove old results for this run.
+           * Re-importing the same GitHub run should
+           * replace its previous results.
            *
-           * This prevents duplicate test cases when the same
-           * GitHub run is imported again.
+           * It does NOT delete results belonging
+           * to other pushes/runs.
            */
-          await tx.testResult.deleteMany(
-            {
-              where: {
+          await tx.testResult.deleteMany({
+            where: {
+              testRunId:
+                testRun.id,
+            },
+          });
+
+          /**
+           * Insert every Playwright test result.
+           */
+          await tx.testResult.createMany({
+            data: testResults.map(
+              (test) => ({
                 testRunId:
                   testRun.id,
-              },
-            }
-          );
 
-          /**
-           * Insert latest Playwright results.
-           */
-          await tx.testResult.createMany(
-            {
-              data:
-                testResults.map(
-                  (test) => ({
-                    testRunId:
-                      testRun.id,
+                testName:
+                  test.testName,
 
-                    testName:
-                      test.testName,
+                fileName:
+                  test.fileName,
 
-                    fileName:
-                      test.fileName,
-
-                    status:
-                      test.status,
-
-                    durationMs:
-                      test.durationMs,
-
-                    error:
-                      test.error,
-                  })
-                ),
-            }
-          );
-
-          /**
-           * Update TestRun using the actual Playwright
-           * result.
-           */
-          return tx.testRun.update(
-            {
-              where: {
-                id: testRun.id,
-              },
-
-              data: {
                 status:
-                  finalStatus,
-              },
+                  test.status,
 
-              include: {
-                testResults:
-                  true,
-              },
-            }
-          );
+                durationMs:
+                  test.durationMs,
+
+                error:
+                  safeError(
+                    test.error
+                  ),
+              })
+            ),
+          });
+
+          /**
+           * Update TestRun with the actual
+           * Playwright result.
+           */
+          return tx.testRun.update({
+            where: {
+              id:
+                testRun.id,
+            },
+
+            data: {
+              status:
+                finalStatus,
+            },
+
+            include: {
+              testResults:
+                true,
+            },
+          });
         }
       );
 
     /**
-     * ========================================================
-     * SUCCESS RESPONSE
-     * ========================================================
+     * Successful response.
      */
-
     return NextResponse.json({
       success: true,
 
@@ -1025,10 +984,6 @@ export async function POST(
         reportEntryName,
       },
 
-      /**
-       * This is now based on Playwright tests,
-       * not GitHub's temporary workflow state.
-       */
       finalStatus,
 
       testResultsImported:
