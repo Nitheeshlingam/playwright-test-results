@@ -1,54 +1,20 @@
-// app/page.tsx
-
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import Filters from "./filters";
 
 const COMMITS_PER_PAGE = 10;
 
-function formatRunDate(value: Date | string | null | undefined) {
-  if (!value) {
-    return "Not available";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Not available";
-  }
-
-  return date.toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-}
-
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{
     status?: string;
-    developer?: string;
-    testCase?: string;
-    from?: string;
-    to?: string;
     page?: string;
   }>;
 }) {
   const params = await searchParams;
 
-  const status = params.status || "";
-  const developer = params.developer || "";
-  const testCase = params.testCase || "";
-  const from = params.from || "";
-  const to = params.to || "";
-
+  const status = params.status;
   const requestedPage = Number(params.page || "1");
 
   const currentPage =
@@ -56,88 +22,25 @@ export default async function Home({
       ? requestedPage
       : 1;
 
-  const where: {
-    status?: string;
-    developer?: string;
-    startedAt?: {
-      gte?: Date;
-      lt?: Date;
-    };
-  } = {};
-
-  if (status === "PASSED" || status === "FAILED") {
-    where.status = status;
-  }
-
-  if (developer) {
-    where.developer = developer;
-  }
-
-  if (from) {
-    const fromDate = new Date(`${from}T00:00:00.000Z`);
-
-    if (!Number.isNaN(fromDate.getTime())) {
-      where.startedAt = {
-        ...where.startedAt,
-        gte: fromDate,
-      };
-    }
-  }
-
-  if (to) {
-    const toDate = new Date(`${to}T00:00:00.000Z`);
-    toDate.setUTCDate(toDate.getUTCDate() + 1);
-
-    if (!Number.isNaN(toDate.getTime())) {
-      where.startedAt = {
-        ...where.startedAt,
-        lt: toDate,
-      };
-    }
-  }
+  // ============================================================
+  // FETCH ALL TEST RUNS
+  // ============================================================
 
   const testRuns = await prisma.testRun.findMany({
-    where,
+    where: status
+      ? {
+          status,
+        }
+      : undefined,
+
     include: {
       testResults: true,
     },
+
     orderBy: {
-      startedAt: "desc",
+      createdAt: "desc",
     },
   });
-
-  const allRuns = await prisma.testRun.findMany({
-    include: {
-      testResults: true,
-    },
-    orderBy: {
-      startedAt: "desc",
-    },
-  });
-
-  const developerOptions = [
-    ...new Set(
-      allRuns
-        .map((run) => run.developer)
-        .filter(Boolean)
-    ),
-  ].sort();
-
-  const testCaseOptions = [
-    ...new Set(
-      allRuns
-        .flatMap((run) =>
-          run.testResults.map((test) => test.testName)
-        )
-        .filter(Boolean)
-    ),
-  ].sort();
-
-  const branchOptions = [
-    ...new Set(
-      allRuns.map((run) => run.branch || "main")
-    ),
-  ].sort();
 
   // ============================================================
   // PAGINATION
@@ -189,7 +92,6 @@ export default async function Home({
       run.testResults.filter(
         (test) =>
           test.status === "failed" ||
-          test.status === "timedOut" ||
           test.status === "interrupted"
       ).length,
     0
@@ -218,26 +120,25 @@ export default async function Home({
   const developerStats = Object.values(
     testRuns.reduce(
       (acc, run) => {
-        const name =
+        const developer =
           run.developer || "Unknown";
 
-        if (!acc[name]) {
-          acc[name] = {
-            developer: name,
+        if (!acc[developer]) {
+          acc[developer] = {
+            developer,
             failedRuns: 0,
             failedTests: 0,
           };
         }
 
         if (run.status === "FAILED") {
-          acc[name].failedRuns++;
+          acc[developer].failedRuns++;
         }
 
-        acc[name].failedTests +=
+        acc[developer].failedTests +=
           run.testResults.filter(
             (test) =>
               test.status === "failed" ||
-              test.status === "timedOut" ||
               test.status === "interrupted"
           ).length;
 
@@ -255,135 +156,18 @@ export default async function Home({
   );
 
   // ============================================================
-  // SELECTED TEST CASE STATISTICS
+  // LATEST COMMIT
   // ============================================================
-
-  const selectedTestResults = testCase
-    ? testRuns.flatMap((run) =>
-        run.testResults
-          .filter(
-            (test) =>
-              test.testName === testCase
-          )
-          .map((test) => ({
-            ...test,
-            runDate: run.startedAt,
-          }))
-      )
-    : [];
-
-  const selectedTestTotal =
-    selectedTestResults.length;
-
-  const selectedTestPassed =
-    selectedTestResults.filter(
-      (test) => test.status === "passed"
-    ).length;
-
-  const selectedTestFailed =
-    selectedTestResults.filter(
-      (test) =>
-        test.status === "failed" ||
-        test.status === "timedOut" ||
-        test.status === "interrupted"
-    ).length;
-
-  const selectedFailureRate =
-    selectedTestTotal === 0
-      ? 0
-      : Math.round(
-          (selectedTestFailed /
-            selectedTestTotal) *
-            100
-        );
-
-  // ============================================================
-  // DAILY FAILURE RATIO
-  // ============================================================
-
-  const dailyStats = Object.values(
-    selectedTestResults.reduce(
-      (acc, result) => {
-        const date = result.runDate
-          .toISOString()
-          .slice(0, 10);
-
-        if (!acc[date]) {
-          acc[date] = {
-            date,
-            total: 0,
-            failed: 0,
-          };
-        }
-
-        acc[date].total++;
-
-        if (
-          result.status === "failed" ||
-          result.status === "timedOut" ||
-          result.status === "interrupted"
-        ) {
-          acc[date].failed++;
-        }
-
-        return acc;
-      },
-      {} as Record<
-        string,
-        {
-          date: string;
-          total: number;
-          failed: number;
-        }
-      >
-    )
-  ).sort((a, b) =>
-    a.date.localeCompare(b.date)
-  );
-
-  const averageFailureRate =
-    dailyStats.length === 0
-      ? 0
-      : Math.round(
-          dailyStats.reduce(
-            (sum, day) =>
-              sum +
-              (day.total === 0
-                ? 0
-                : (day.failed /
-                    day.total) *
-                  100),
-            0
-          ) / dailyStats.length
-        );
 
   const latestRun = testRuns[0];
-
-  function createPageUrl(page: number) {
-    const query = new URLSearchParams();
-
-    if (status) query.set("status", status);
-    if (developer) query.set("developer", developer);
-    if (testCase) query.set("testCase", testCase);
-    if (from) query.set("from", from);
-    if (to) query.set("to", to);
-
-    if (page > 1) {
-      query.set("page", String(page));
-    }
-
-    const queryString = query.toString();
-
-    return queryString
-      ? `/?${queryString}`
-      : "/";
-  }
 
   return (
     <main className="dashboard">
       <div className="dashboard-container">
 
-        {/* HEADER */}
+        {/* =====================================================
+            HEADER
+        ====================================================== */}
 
         <header className="dashboard-header">
           <div>
@@ -397,21 +181,25 @@ export default async function Home({
           </div>
 
           {latestRun && (
-            <span
-              className={`status-badge ${
-                latestRun.status === "PASSED"
-                  ? "status-passed"
-                  : "status-failed"
-              }`}
-            >
-              {latestRun.status === "PASSED"
-                ? "● HEALTHY"
-                : "● FAILING"}
-            </span>
+            <div>
+              <span
+                className={`status-badge ${
+                  latestRun.status === "PASSED"
+                    ? "status-passed"
+                    : "status-failed"
+                }`}
+              >
+                {latestRun.status === "PASSED"
+                  ? "● HEALTHY"
+                  : "● FAILING"}
+              </span>
+            </div>
           )}
         </header>
 
-        {/* STAT CARDS */}
+        {/* =====================================================
+            STAT CARDS
+        ====================================================== */}
 
         <div className="stats-grid">
 
@@ -457,196 +245,127 @@ export default async function Home({
 
         </div>
 
-        {/* FILTERS */}
+        {/* =====================================================
+            FILTER COMPONENT
+        ====================================================== */}
 
-        <Filters
-          developers={developerOptions}
-          testCases={testCaseOptions}
-          branches={branchOptions}
-        />
+        <Filters />
 
-        {/* TEST CASE ANALYTICS */}
-
-        {testCase && (
-          <div className="dashboard-section">
-
-            <div className="section-header">
-              <h2 className="section-title">
-                Test Case Analytics
-              </h2>
-
-              <p className="section-description">
-                Failure analysis for{" "}
-                <strong>{testCase}</strong>
-              </p>
-            </div>
-
-            <div className="stats-grid">
-
-              <div className="stat-card stat-blue">
-                <div className="stat-label">
-                  Total Executions
-                </div>
-
-                <div className="stat-value">
-                  {selectedTestTotal}
-                </div>
-              </div>
-
-              <div className="stat-card stat-green">
-                <div className="stat-label">
-                  Passed
-                </div>
-
-                <div className="stat-value">
-                  {selectedTestPassed}
-                </div>
-              </div>
-
-              <div className="stat-card stat-red">
-                <div className="stat-label">
-                  Failed
-                </div>
-
-                <div className="stat-value">
-                  {selectedTestFailed}
-                </div>
-              </div>
-
-              <div className="stat-card stat-yellow">
-                <div className="stat-label">
-                  Failure Rate
-                </div>
-
-                <div className="stat-value">
-                  {selectedFailureRate}%
-                </div>
-              </div>
-
-            </div>
-
-            <div
-              style={{
-                padding: "24px",
-                borderTop: "1px solid #e5e7eb",
-              }}
-            >
-              <div className="stat-label">
-                Average Daily Failure Rate
-              </div>
-
-              <strong
-                style={{
-                  display: "block",
-                  marginTop: "6px",
-                  fontSize: "30px",
-                  color: "#dc2626",
-                }}
-              >
-                {averageFailureRate}%
-              </strong>
-
-              <p
-                style={{
-                  marginTop: "6px",
-                  color: "#64748b",
-                  fontSize: "13px",
-                }}
-              >
-                Average failure percentage across
-                the selected dates.
-              </p>
-            </div>
-
-            {/* DAILY BREAKDOWN */}
-
-            {dailyStats.length > 0 && (
-              <div
-                style={{
-                  borderTop: "1px solid #e5e7eb",
-                }}
-              >
-                <div
-                  style={{
-                    padding: "18px 24px",
-                    fontWeight: 700,
-                  }}
-                >
-                  Daily Failure Breakdown
-                </div>
-
-                {dailyStats.map((day) => {
-                  const rate =
-                    day.total === 0
-                      ? 0
-                      : Math.round(
-                          (day.failed /
-                            day.total) *
-                            100
-                        );
-
-                  return (
-                    <div
-                      key={day.date}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "1fr 1fr 1fr 1fr",
-                        gap: "20px",
-                        padding:
-                          "15px 24px",
-                        borderTop:
-                          "1px solid #f1f5f9",
-                        fontSize: "13px",
-                      }}
-                    >
-                      <strong>
-                        {day.date}
-                      </strong>
-
-                      <span>
-                        Executions:{" "}
-                        {day.total}
-                      </span>
-
-                      <span>
-                        Failed:{" "}
-                        {day.failed}
-                      </span>
-
-                      <span
-                        style={{
-                          color:
-                            rate > 0
-                              ? "#dc2626"
-                              : "#16a34a",
-                          fontWeight: 600,
-                        }}
-                      >
-                        Failure Rate:{" "}
-                        {rate}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* TEST OVERVIEW */}
+        {/* =====================================================
+            FILTERS
+        ====================================================== */}
 
         <div className="dashboard-section">
 
           <div className="section-header">
+
+            <h2 className="section-title">
+              Filters
+            </h2>
+
+            <p className="section-description">
+              Filter commits by status, developer or branch
+            </p>
+
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(3, 1fr)",
+              gap: "16px",
+              padding: "20px 24px",
+            }}
+          >
+
+            {/* STATUS */}
+
+            <div>
+              <label className="stat-label">
+                Status
+              </label>
+
+              <div
+                style={{
+                  marginTop: "6px",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  background: "#f9fafb",
+                }}
+              >
+                {status || "All statuses"}
+              </div>
+            </div>
+
+            {/* DEVELOPER */}
+
+            <div>
+              <label className="stat-label">
+                Developers
+              </label>
+
+              <div
+                style={{
+                  marginTop: "6px",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  background: "#f9fafb",
+                }}
+              >
+                {developerStats.length} developers
+              </div>
+            </div>
+
+            {/* BRANCH */}
+
+            <div>
+              <label className="stat-label">
+                Branches
+              </label>
+
+              <div
+                style={{
+                  marginTop: "6px",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  background: "#f9fafb",
+                }}
+              >
+                {
+                  new Set(
+                    testRuns.map(
+                      (run) =>
+                        run.branch || "main"
+                    )
+                  ).size
+                }{" "}
+                branches
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* =====================================================
+            TEST OVERVIEW
+        ====================================================== */}
+
+        <div className="dashboard-section">
+
+          <div className="section-header">
+
             <h2 className="section-title">
               Test Overview
             </h2>
 
             <p className="section-description">
-              Playwright test execution statistics
+              Overall Playwright test execution statistics
             </p>
+
           </div>
 
           <div
@@ -658,6 +377,7 @@ export default async function Home({
               background: "#e5e7eb",
             }}
           >
+
             <div
               style={{
                 background: "white",
@@ -717,14 +437,18 @@ export default async function Home({
                 {failedTests}
               </strong>
             </div>
+
           </div>
         </div>
 
-        {/* WHO IS BREAKING */}
+        {/* =====================================================
+            WHO IS BREAKING
+        ====================================================== */}
 
         <div className="dashboard-section">
 
           <div className="section-header">
+
             <h2 className="section-title">
               Who Is Breaking?
             </h2>
@@ -732,66 +456,82 @@ export default async function Home({
             <p className="section-description">
               Developers associated with failed commits
             </p>
+
           </div>
 
           {developerStats.length === 0 ? (
+
             <div className="empty-state">
               No developer failures 🎉
             </div>
+
           ) : (
-            developerStats.map((item) => (
-              <div
-                className="developer-row"
-                key={item.developer}
-              >
-                <div className="developer-name">
-                  {item.developer}
-                </div>
 
-                <div>
-                  Failed Commits:{" "}
-                  <span className="failed-number">
-                    {item.failedRuns}
-                  </span>
-                </div>
+            developerStats.map(
+              (developer) => (
 
-                <div>
-                  Failed Tests:{" "}
-                  <span className="failed-number">
-                    {item.failedTests}
-                  </span>
+                <div
+                  className="developer-row"
+                  key={developer.developer}
+                >
+
+                  <div className="developer-name">
+                    {developer.developer}
+                  </div>
+
+                  <div>
+                    Failed Commits:{" "}
+                    <span className="failed-number">
+                      {developer.failedRuns}
+                    </span>
+                  </div>
+
+                  <div>
+                    Failed Tests:{" "}
+                    <span className="failed-number">
+                      {developer.failedTests}
+                    </span>
+                  </div>
+
                 </div>
-              </div>
-            ))
+              )
+            )
           )}
+
         </div>
 
-        {/* COMMITS */}
+        {/* =====================================================
+            COMMITS
+        ====================================================== */}
 
         <div className="dashboard-section">
 
           <div className="section-header">
+
             <h2 className="section-title">
               Commits
             </h2>
 
             <p className="section-description">
-              Latest Playwright results by commit
+              Latest Playwright test results by commit
             </p>
+
           </div>
 
           {paginatedRuns.length === 0 ? (
+
             <div className="empty-state">
               No commits available.
             </div>
+
           ) : (
+
             paginatedRuns.map((run) => {
 
               const runFailedTests =
                 run.testResults.filter(
                   (test) =>
                     test.status === "failed" ||
-                    test.status === "timedOut" ||
                     test.status === "interrupted"
                 ).length;
 
@@ -815,7 +555,10 @@ export default async function Home({
                     color: "inherit",
                   }}
                 >
+
                   <div className="recent-run-card">
+
+                    {/* COMMIT HEADER */}
 
                     <div
                       style={{
@@ -826,7 +569,9 @@ export default async function Home({
                         gap: "20px",
                       }}
                     >
+
                       <div>
+
                         <div
                           style={{
                             fontWeight: 700,
@@ -852,6 +597,7 @@ export default async function Home({
                         >
                           {run.repository}
                         </div>
+
                       </div>
 
                       <span
@@ -865,7 +611,10 @@ export default async function Home({
                           ? "PASSED"
                           : "FAILED"}
                       </span>
+
                     </div>
+
+                    {/* COMMIT DETAILS */}
 
                     <div
                       style={{
@@ -877,20 +626,24 @@ export default async function Home({
                         color: "#64748b",
                       }}
                     >
+
                       <span>
                         👤 {run.developer}
                       </span>
 
                       <span>
-                        🌿 {run.branch || "main"}
+                        🌿{" "}
+                        {run.branch || "main"}
                       </span>
 
                       <span>
-                        📌 {run.event || "unknown"}
+                        📌{" "}
+                        {run.event || "unknown"}
                       </span>
 
                       <span>
-                        🧪 {run.testResults.length} tests
+                        🧪{" "}
+                        {run.testResults.length} tests
                       </span>
 
                       <span
@@ -911,10 +664,9 @@ export default async function Home({
                         ✕ {runFailedTests} failed
                       </span>
 
-                      <span>
-                        🕒 {formatRunDate(run.startedAt)}
-                      </span>
                     </div>
+
+                    {/* FULL COMMIT SHA */}
 
                     <div
                       style={{
@@ -924,7 +676,8 @@ export default async function Home({
                         borderRadius: "8px",
                         fontSize: "12px",
                         color: "#475569",
-                        fontFamily: "monospace",
+                        fontFamily:
+                          "monospace",
                         wordBreak: "break-all",
                       }}
                     >
@@ -934,14 +687,18 @@ export default async function Home({
                     </div>
 
                   </div>
+
                 </Link>
               );
             })
           )}
 
-          {/* PAGINATION */}
+          {/* ===================================================
+              PAGINATION
+          ==================================================== */}
 
           {totalPages > 1 && (
+
             <div
               style={{
                 display: "flex",
@@ -953,15 +710,24 @@ export default async function Home({
                   "1px solid #e5e7eb",
               }}
             >
+
+              {/* PREVIOUS */}
+
               {safePage > 1 ? (
+
                 <Link
-                  href={createPageUrl(
+                  href={`/?page=${
                     safePage - 1
-                  )}
+                  }${
+                    status
+                      ? `&status=${encodeURIComponent(
+                          status
+                        )}`
+                      : ""
+                  }`}
                   style={{
                     padding: "9px 14px",
-                    border:
-                      "1px solid #d1d5db",
+                    border: "1px solid #d1d5db",
                     borderRadius: "7px",
                     textDecoration: "none",
                     color: "#374151",
@@ -971,12 +737,13 @@ export default async function Home({
                 >
                   ← Previous
                 </Link>
+
               ) : (
+
                 <span
                   style={{
                     padding: "9px 14px",
-                    border:
-                      "1px solid #e5e7eb",
+                    border: "1px solid #e5e7eb",
                     borderRadius: "7px",
                     color: "#cbd5e1",
                     fontSize: "13px",
@@ -986,19 +753,25 @@ export default async function Home({
                 </span>
               )}
 
+              {/* PAGE NUMBERS */}
+
               <div
                 style={{
                   display: "flex",
                   gap: "6px",
                 }}
               >
+
                 {Array.from(
                   { length: totalPages },
                   (_, index) =>
                     index + 1
                 )
                   .filter((page) => {
-                    if (totalPages <= 7) {
+
+                    if (
+                      totalPages <= 7
+                    ) {
                       return true;
                     }
 
@@ -1011,12 +784,15 @@ export default async function Home({
                     );
                   })
                   .map((page, index, pages) => {
+
                     const previousPage =
                       pages[index - 1];
 
                     const needsDots =
                       previousPage &&
-                      page - previousPage > 1;
+                      page -
+                        previousPage >
+                        1;
 
                     return (
                       <span
@@ -1026,6 +802,7 @@ export default async function Home({
                           gap: "6px",
                         }}
                       >
+
                         {needsDots && (
                           <span
                             style={{
@@ -1040,43 +817,66 @@ export default async function Home({
                         )}
 
                         <Link
-                          href={createPageUrl(page)}
+                          href={`/?page=${page}${
+                            status
+                              ? `&status=${encodeURIComponent(
+                                  status
+                                )}`
+                              : ""
+                          }`}
                           style={{
                             minWidth: "38px",
-                            textAlign: "center",
-                            padding: "9px 10px",
+                            textAlign:
+                              "center",
+                            padding:
+                              "9px 10px",
                             border:
                               "1px solid #d1d5db",
-                            borderRadius: "7px",
-                            textDecoration: "none",
+                            borderRadius:
+                              "7px",
+                            textDecoration:
+                              "none",
                             background:
-                              page === safePage
+                              page ===
+                              safePage
                                 ? "#2563eb"
                                 : "white",
                             color:
-                              page === safePage
+                              page ===
+                              safePage
                                 ? "white"
                                 : "#374151",
-                            fontSize: "13px",
+                            fontSize:
+                              "13px",
                             fontWeight: 600,
                           }}
                         >
                           {page}
                         </Link>
+
                       </span>
                     );
                   })}
+
               </div>
 
+              {/* NEXT */}
+
               {safePage < totalPages ? (
+
                 <Link
-                  href={createPageUrl(
+                  href={`/?page=${
                     safePage + 1
-                  )}
+                  }${
+                    status
+                      ? `&status=${encodeURIComponent(
+                          status
+                        )}`
+                      : ""
+                  }`}
                   style={{
                     padding: "9px 14px",
-                    border:
-                      "1px solid #d1d5db",
+                    border: "1px solid #d1d5db",
                     borderRadius: "7px",
                     textDecoration: "none",
                     color: "#374151",
@@ -1086,12 +886,13 @@ export default async function Home({
                 >
                   Next →
                 </Link>
+
               ) : (
+
                 <span
                   style={{
                     padding: "9px 14px",
-                    border:
-                      "1px solid #e5e7eb",
+                    border: "1px solid #e5e7eb",
                     borderRadius: "7px",
                     color: "#cbd5e1",
                     fontSize: "13px",
@@ -1100,8 +901,11 @@ export default async function Home({
                   Next →
                 </span>
               )}
+
             </div>
           )}
+
+          {/* PAGINATION INFO */}
 
           <div
             style={{
@@ -1117,23 +921,30 @@ export default async function Home({
               : startIndex + 1}{" "}
             –{" "}
             {Math.min(
-              startIndex + COMMITS_PER_PAGE,
+              startIndex +
+                COMMITS_PER_PAGE,
               totalCommits
             )}{" "}
             of {totalCommits} commits
           </div>
+
         </div>
 
-        {/* LATEST COMMIT */}
+        {/* =====================================================
+            LATEST COMMIT
+        ====================================================== */}
 
         {latestRun && (
+
           <div
             className="dashboard-section"
             style={{
               marginBottom: "0",
             }}
           >
+
             <div className="section-header">
+
               <h2 className="section-title">
                 Latest Commit
               </h2>
@@ -1141,6 +952,7 @@ export default async function Home({
               <p className="section-description">
                 Most recent Playwright execution
               </p>
+
             </div>
 
             <div
@@ -1152,6 +964,7 @@ export default async function Home({
                 gap: "18px",
               }}
             >
+
               <div>
                 <div className="stat-label">
                   Status
@@ -1178,7 +991,8 @@ export default async function Home({
                 </div>
 
                 <strong>
-                  {latestRun.branch || "main"}
+                  {latestRun.branch ||
+                    "main"}
                 </strong>
               </div>
 
@@ -1188,46 +1002,45 @@ export default async function Home({
                 </div>
 
                 <strong>
-                  {latestRun.event || "unknown"}
-                </strong>
-              </div>
-
-              <div>
-                <div className="stat-label">
-                  Run Date
-                </div>
-
-                <strong>
-                  {formatRunDate(
-                    latestRun.startedAt
-                  )}
+                  {latestRun.event ||
+                    "unknown"}
                 </strong>
               </div>
 
               <div
                 style={{
-                  gridColumn: "1 / -1",
+                  gridColumn:
+                    "1 / -1",
                 }}
               >
+
                 <div className="stat-label">
                   Commit
                 </div>
 
                 <code
                   style={{
-                    background: "#f1f5f9",
-                    padding: "8px 10px",
-                    borderRadius: "6px",
-                    display: "inline-block",
+                    background:
+                      "#f1f5f9",
+                    padding:
+                      "8px 10px",
+                    borderRadius:
+                      "6px",
+                    display:
+                      "inline-block",
                     fontSize: "12px",
-                    wordBreak: "break-all",
+                    wordBreak:
+                      "break-all",
                   }}
                 >
                   {latestRun.commitSha ||
                     "Not available"}
                 </code>
+
               </div>
+
             </div>
+
           </div>
         )}
 
